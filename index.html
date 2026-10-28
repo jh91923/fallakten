@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; manifest-src blob:; connect-src 'none'; worker-src 'self'; form-action 'none'; base-uri 'none'">
+<meta name="theme-color" content="#1f5f8b"><title>Fallhilfe</title>
+<style>
+:root{--bg:#f3f5f8;--c:#fff;--t:#1b2430;--m:#667085;--p:#1f5f8b;--b:#dde3ea;--g:#2e9e4f;--y:#f0b400;--r:#d6342c}
+@media(prefers-color-scheme:dark){:root{--bg:#10151c;--c:#1a222d;--t:#e8edf3;--m:#97a3b3;--b:#2c3745;--p:#5aa6dc}}
+*{box-sizing:border-box}body{margin:0;font:16px system-ui,sans-serif;background:var(--bg);color:var(--t);padding-bottom:72px}
+header{background:var(--p);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;font-weight:700;font-size:18px;position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center}
+header button{background:#fff3;color:#fff;border:0;border-radius:20px;padding:6px 14px;font-size:15px}
+main{padding:12px;max-width:700px;margin:auto}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--c);border-top:1px solid var(--b);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1;border:0;background:none;color:var(--m);padding:8px 0;font-size:11px}nav button b{display:block;font-size:20px}nav .on{color:var(--p);font-weight:700}
+.card{background:var(--c);border:1px solid var(--b);border-radius:12px;padding:12px;margin-bottom:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{text-align:center;cursor:pointer}.stat b{font-size:30px;display:block}.stat span{color:var(--m);font-size:13px}
+h3{margin:14px 2px 6px;font-size:15px;color:var(--m);text-transform:uppercase}
+.row{display:flex;gap:10px;align-items:center;background:var(--c);border:1px solid var(--b);border-radius:12px;padding:12px;margin-bottom:8px}
+.row .x{flex:1;min-width:0}.row small{display:block;color:var(--m)}.row.done .x{opacity:.5;text-decoration:line-through}
+.dot{width:14px;height:14px;border-radius:50%;flex:none;display:inline-block}.g{background:var(--g)}.y{background:var(--y)}.r{background:var(--r)}
+input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--b);border-radius:8px;background:var(--bg);color:var(--t);margin-top:4px}
+label{display:block;margin:10px 0;font-size:14px;color:var(--m)}input[type=checkbox]{width:24px;height:24px;margin:0}
+button.p,button.d,.btns button,.big{font:inherit;padding:10px 16px;border-radius:8px;border:1px solid var(--b);background:var(--c);color:var(--t)}
+button.p{background:var(--p);color:#fff;border-color:var(--p)}button.d{color:var(--r)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.big{width:100%;margin-bottom:8px;text-align:left}
+.fab{position:fixed;right:16px;bottom:84px;width:56px;height:56px;border-radius:50%;background:var(--p);color:#fff;border:0;font-size:30px;box-shadow:0 3px 10px #0005;z-index:6}
+#modal{display:none;position:fixed;inset:0;background:#0007;z-index:20;align-items:flex-end;justify-content:center}
+.sheet{background:var(--c);width:100%;max-width:700px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px}
+.chips button{border:1px solid var(--b);background:var(--c);color:var(--t);border-radius:20px;padding:6px 14px;margin-right:6px}.chips .on{background:var(--p);color:#fff}
+table{width:100%;border-collapse:collapse}td,th{padding:6px;border-bottom:1px solid var(--b);text-align:left;font-size:14px}
+#lock{display:none;position:fixed;inset:0;background:var(--p);z-index:99;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;padding:24px}#lock input{max-width:220px;text-align:center;font-size:24px;color:var(--t)}#lock button{font:inherit;padding:10px 24px;border-radius:8px;border:0}
+.empty{color:var(--m);text-align:center;padding:20px}#print{display:none}
+@media print{body>*:not(#print){display:none!important}#print{display:block;color:#000;background:#fff;padding:0}#print td,#print th{border:1px solid #999}}
+</style></head><body>
+<header><span id="ttl">Fallhilfe</span><button id="back" style="display:none" onclick="detail=null;render()">‹ Zurück</button></header>
+<div id="lock"><h2>🔒 Fallhilfe</h2><input id="pin" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off"><button onclick="unlock()">Entsperren</button><small id="lerr"></small></div>
+<main id="v"></main><div id="modal"></div><div id="print"></div>
+<nav id="nav"></nav>
+<script>
+const KEY='fallhilfe_v1',DOCS=['Aufenthaltsgestattung','Aufenthaltserlaubnis','Duldung','Pass','Krankenkasse','Geburtsurkunde','Wohnungsgeberbescheinigung'],
+REM=['BAMF','Jobcenter','Ausländerbehörde','Krankenkasse','Schule','Kita','Eigene Erinnerung'],PR=['Hoch','Mittel','Niedrig'],
+TABS=[['home','🏠','Start'],['fam','👪','Familien'],['task','✅','Aufgaben'],['rem','🔔','Vorlagen'],['appt','📅','Termine'],['exp','💾','Export']];
+let db=load(),tab='home',detail=null,q='',flt='open';
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return d}catch(e){}return{families:[],tasks:[],reminders:[],appts:[]}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){alert('Speichern fehlgeschlagen (Speicher voll?)')}}
+const $=s=>document.querySelector(s),M=$('#modal'),uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'),T=ymd(new Date());
+const days=d=>Math.round((new Date(d+'T00:00')-new Date(T+'T00:00'))/864e5),fmt=d=>d?d.split('-').reverse().join('.'):'';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fam=id=>db.families.find(f=>f.id==id),fn=id=>fam(id)?.name||'–';
+const dc=(d,done)=>done||!d?'g':days(d)<0?'r':days(d)<=14?'y':'g',dot=c=>`<i class="dot ${c}"></i>`;
+function famCls(f){let w='g';const up=c=>{if(c=='r')w='r';else if(c=='y'&&w!='r')w='y'};
+ [...db.tasks,...db.reminders].filter(x=>x.famId==f.id&&!x.done&&x.due).forEach(x=>up(dc(x.due)));
+ db.appts.filter(x=>x.famId==f.id&&x.date&&days(x.date)>=0).forEach(x=>up(dc(x.date)));
+ DOCS.forEach((d,i)=>{const e=f.docs?.[i]?.e;if(e)up(dc(e))});return w}
+const famOpts=()=>[['','– keine –'],...db.families.map(f=>[f.id,f.name])];
+const S={
+ families:{t:'Familie',f:()=>[{k:'name',l:'Familienname'},{k:'contact',l:'Ansprechpartner'},{k:'country',l:'Herkunftsland'},{k:'persons',l:'Anzahl Personen',t:'number'},{k:'births',l:'Geburtsdaten (eine Person pro Zeile: Name, TT.MM.JJJJ)',t:'textarea'},{k:'phone',l:'Telefonnummer',t:'tel'},{k:'email',l:'E-Mail',t:'email'},{k:'address',l:'Unterkunft / Adresse'},{k:'moveIn',l:'Einzugsdatum',t:'date'},{k:'notes',l:'Notizen',t:'textarea'}]},
+ tasks:{t:'Aufgabe',f:()=>[{k:'title',l:'Aufgabe'},{k:'famId',l:'Familie',t:'select',o:famOpts()},{k:'due',l:'Fälligkeitsdatum',t:'date'},{k:'prio',l:'Priorität',t:'select',o:PR},{k:'done',l:'Status',t:'select',o:[['','Offen'],['1','Erledigt']]}],d:{prio:'Mittel',due:T}},
+ reminders:{t:'Wiedervorlage',f:()=>[{k:'type',l:'Stelle',t:'select',o:REM},{k:'title',l:'Worum geht es?'},{k:'famId',l:'Familie',t:'select',o:famOpts()},{k:'due',l:'Wiedervorlage am',t:'date'},{k:'done',l:'Status',t:'select',o:[['','Offen'],['1','Erledigt']]}],d:{due:T}},
+ appts:{t:'Termin',f:()=>[{k:'date',l:'Datum',t:'date'},{k:'time',l:'Uhrzeit',t:'time'},{k:'agency',l:'Behörde'},{k:'contact',l:'Ansprechpartner'},{k:'famId',l:'Familie',t:'select',o:famOpts()},{k:'notes',l:'Notizen',t:'textarea'}],d:{date:T}}};
+function form(title,fields,v,onSave,onDel){
+ let h=`<h2>${title}</h2>`;
+ for(const f of fields){const val=v[f.k]??'';h+=`<label>${f.l}`;
+  if(f.t=='select')h+=`<select id="f_${f.k}">${f.o.map(o=>{const[a,b]=Array.isArray(o)?o:[o,o];return`<option value="${esc(a)}"${a==val?' selected':''}>${esc(b)}</option>`}).join('')}</select>`;
+  else if(f.t=='textarea')h+=`<textarea id="f_${f.k}" rows="3">${esc(val)}</textarea>`;
+  else h+=`<input id="f_${f.k}" type="${f.t||'text'}" value="${esc(val)}">`;h+='</label>'}
+ h+=`<div class="btns"><button class="p" id="ok">Speichern</button><button id="no">Abbrechen</button>${onDel?'<button class="d" id="del">Löschen</button>':''}</div>`;
+ M.innerHTML='<div class="sheet">'+h+'</div>';M.style.display='flex';
+ const close=()=>{M.style.display='none';M.innerHTML=''};$('#no').onclick=close;
+ $('#ok').onclick=()=>{const o={...v};fields.forEach(f=>o[f.k]=$('#f_'+f.k).value.trim());onSave(o);close()};
+ if(onDel)$('#del').onclick=()=>{if(confirm('Wirklich löschen?')){onDel();close()}}}
+function edit(c,id,pre){const s=S[c],cur=id&&db[c].find(x=>x.id==id);
+ form((id?'Bearbeiten: ':'Neu: ')+s.t,s.f(),cur?{...cur,done:cur.done?'1':''}:{...(s.d||{}),...(pre||{})},o=>{o.done=o.done?1:'';
+  if(cur)db[c]=db[c].map(x=>x.id==id?o:x);else{o.id=uid();db[c].push(o)}save();render()},
+  cur&&(()=>{db[c]=db[c].filter(x=>x.id!=id);if(c=='families')detail=null;save();render()}))}
+function editDocs(id){const f=fam(id),fields=[];
+ DOCS.forEach((d,i)=>{fields.push({k:'s'+i,l:d+' – Status',t:'select',o:['','Vorhanden','Beantragt','Fehlt']},{k:'e'+i,l:d+' – gültig bis',t:'date'})});
+ const v={};DOCS.forEach((d,i)=>{v['s'+i]=f.docs?.[i]?.s||'';v['e'+i]=f.docs?.[i]?.e||''});
+ form('Dokumente: '+f.name,fields,v,o=>{f.docs=DOCS.map((d,i)=>({s:o['s'+i],e:o['e'+i]}));save();render()})}
+function tog(c,id){const x=db[c].find(x=>x.id==id);x.done=x.done?'':1;save();render()}
+const sortD=(a,b)=>(a.due||'9').localeCompare(b.due||'9');
+function item(c,x){const d=c=='appts'?x.date:x.due,cls=dc(d,x.done);
+ const title=c=='appts'?`${fmt(x.date)} ${x.time||''} · ${esc(x.agency)}`:c=='reminders'?`${esc(x.type)}: ${esc(x.title)}`:esc(x.title);
+ const sub=c=='appts'?`${esc(x.contact)} · ${esc(fn(x.famId))}`:`${fmt(x.due)} · ${esc(fn(x.famId))}${x.prio?' · '+x.prio:''}`;
+ return`<div class="row ${x.done?'done':''}">${c!='appts'?`<input type="checkbox" ${x.done?'checked':''} onchange="tog('${c}','${x.id}')">`:''}${dot(cls)}<div class="x" onclick="edit('${c}','${x.id}')">${title}<small>${sub}</small></div></div>`}
+const list=(c,a)=>a.length?a.map(x=>item(c,x)).join(''):'<div class="empty">Keine Einträge</div>';
+function render(){
+ $('#nav').innerHTML=TABS.map(t=>`<button class="${tab==t[0]?'on':''}" onclick="tab='${t[0]}';detail=null;render()"><b>${t[1]}</b>${t[2]}</button>`).join('');
+ $('#back').style.display=detail?'':'none';$('#ttl').textContent=detail?fn(detail):'Fallhilfe';
+ let h='',add=null;const open=[...db.tasks,...db.reminders].filter(x=>!x.done);
+ if(detail)h=famDetail(fam(detail));
+ else if(tab=='home'){
+  const od=open.filter(x=>x.due&&days(x.due)<0).sort(sortD),td=db.appts.filter(x=>x.date==T),soon=db.appts.filter(x=>x.date>T&&days(x.date)<=14).sort((a,b)=>a.date.localeCompare(b.date));
+  h=`<div class="grid"><div class="card stat" onclick="tab='appt';render()"><b>${td.length}</b><span>Termine heute</span></div>
+  <div class="card stat" onclick="tab='task';render()"><b>${db.tasks.filter(x=>!x.done).length}</b><span>Offene Aufgaben</span></div>
+  <div class="card stat" onclick="tab='task';render()"><b style="color:var(--r)">${od.length}</b><span>Überfällig</span></div>
+  <div class="card stat" onclick="tab='fam';render()"><b>${db.families.length}</b><span>Familien</span></div></div>
+  <h3>Heute fällige Termine</h3>${list('appts',td)}<h3>Überfällig</h3>${od.map(x=>item(db.tasks.includes(x)?'tasks':'reminders',x)).join('')||'<div class="empty">Nichts überfällig 🎉</div>'}
+  <h3>Termine in 14 Tagen</h3>${list('appts',soon)}
+  <div class="card" style="font-size:13px;color:var(--m)">Ampel: <i class="dot g"></i> aktuell &nbsp;<i class="dot y"></i> innerhalb 14 Tage &nbsp;<i class="dot r"></i> überfällig</div>`}
+ else if(tab=='fam'){add=['families'];
+  const s=q.toLowerCase(),fs=db.families.filter(f=>(f.name+' '+f.address+' '+f.contact).toLowerCase().includes(s)).sort((a,b)=>a.name.localeCompare(b.name));
+  h=`<input id="q" placeholder="🔍 Familienname oder Unterkunft suchen" value="${esc(q)}" oninput="q=this.value;render();const e=$('#q');e.focus();e.setSelectionRange(99,99)">
+  <div style="height:10px"></div>`+(fs.map(f=>`<div class="row" onclick="detail='${f.id}';render()">${dot(famCls(f))}<div class="x"><b>${esc(f.name)}</b><small>${esc(f.address)} · ${esc(f.persons)} Pers. · ${esc(f.country)}</small></div></div>`).join('')||'<div class="empty">Keine Familien gefunden. Mit + anlegen.</div>')}
+ else if(tab=='task'){add=['tasks'];h=chips()+list('tasks',db.tasks.filter(x=>flt=='open'?!x.done:!!x.done).sort(sortD))}
+ else if(tab=='rem'){add=['reminders'];h=chips()+list('reminders',db.reminders.filter(x=>flt=='open'?!x.done:!!x.done).sort(sortD))}
+ else if(tab=='appt'){add=['appts'];h=list('appts',[...db.appts].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)))}
+ else h=exportView();
+ $('#v').innerHTML=h+(add?`<button class="fab" onclick="edit('${add[0]}')">+</button>`:'')}
+const chips=()=>`<div class="chips" style="margin-bottom:10px"><button class="${flt=='open'?'on':''}" onclick="flt='open';render()">Offen</button><button class="${flt=='done'?'on':''}" onclick="flt='done';render()">Erledigt</button></div>`;
+function famDetail(f){if(!f)return'';const r=(a,b)=>b?`<tr><th>${a}</th><td>${esc(b)}</td></tr>`:'';
+ return`<div class="card">${dot(famCls(f))} <b>${esc(f.name)}</b><table>${r('Ansprechpartner',f.contact)}${r('Herkunftsland',f.country)}${r('Personen',f.persons)}${r('Geburtsdaten',f.births)}${r('Telefon',f.phone)}${r('E-Mail',f.email)}${r('Unterkunft',f.address)}${r('Einzug',fmt(f.moveIn))}${r('Notizen',f.notes)}</table>
+ <div class="btns"><button class="p" onclick="edit('families','${f.id}')">Bearbeiten</button>${f.phone?`<a href="tel:${esc(f.phone)}"><button>📞 Anrufen</button></a>`:''}<button onclick="pdf('${f.id}')">📄 Fallakte PDF</button></div></div>
+ <h3>Dokumente</h3><div class="card"><table>${DOCS.map((d,i)=>{const x=f.docs?.[i]||{};return`<tr><td>${d}</td><td>${esc(x.s||'–')}</td><td>${x.e?dot(dc(x.e))+' '+fmt(x.e):''}</td></tr>`}).join('')}</table><div class="btns"><button onclick="editDocs('${f.id}')">Dokumente bearbeiten</button></div></div>
+ <h3>Aufgaben</h3>${list('tasks',db.tasks.filter(x=>x.famId==f.id).sort(sortD))}<button class="big" onclick="edit('tasks',0,{famId:'${f.id}'})">+ Aufgabe</button>
+ <h3>Wiedervorlagen</h3>${list('reminders',db.reminders.filter(x=>x.famId==f.id).sort(sortD))}<button class="big" onclick="edit('reminders',0,{famId:'${f.id}'})">+ Wiedervorlage</button>
+ <h3>Termine</h3>${list('appts',db.appts.filter(x=>x.famId==f.id).sort((a,b)=>a.date.localeCompare(b.date)))}<button class="big" onclick="edit('appts',0,{famId:'${f.id}'})">+ Termin</button>`}
+function exportView(){return`<div class="card"><b>PDF-Fallakte</b><label>Familie<select id="pf">${db.families.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')}</select></label><button class="big" onclick="pdf($('#pf').value)">📄 Fallakte als PDF (Drucken → Als PDF speichern)</button></div>
+ <button class="big" onclick="excel()">📊 Excel-Export (.xls)</button><button class="big" onclick="backup()">💾 Datensicherung (JSON) herunterladen</button>
+ <label class="big" style="display:block">⬆️ Datensicherung wiederherstellen<input type="file" accept=".json,application/json" onchange="restore(this.files[0])"></label>
+ <button class="big" onclick="setPin()">🔒 PIN-Sperre ${localStorage.getItem('fh_pin')?'ändern / entfernen':'festlegen'}</button>
+ <div class="card" style="font-size:13px;color:var(--m)"><b>Datenschutz:</b> Die App sendet keine Daten ins Internet (technisch gesperrt) und nutzt keine Cookies, Tracker oder externen Dienste. Alle Daten liegen ausschließlich lokal im Browser dieses Geräts. Die PIN ist nur ein Zugriffsschutz, keine Verschlüsselung: Bitte Displaysperre und Geräteverschlüsselung nutzen. JSON-, Excel- und PDF-Dateien enthalten Klartext-Daten und müssen geschützt aufbewahrt und gelöscht werden (DSGVO, Löschfristen beachten).</div>`}
+async function hp(p){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('fh'+p));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return'x'+btoa(p)}}
+function lockNow(){if(localStorage.getItem('fh_pin')){$('#lock').style.display='flex';$('#pin').value='';$('#lerr').textContent=''}}
+async function unlock(){if(await hp($('#pin').value)==localStorage.getItem('fh_pin'))$('#lock').style.display='none';else $('#lerr').textContent='Falsche PIN'}
+async function setPin(){if(localStorage.getItem('fh_pin')&&await hp(prompt('Aktuelle PIN:')||'')!=localStorage.getItem('fh_pin'))return alert('Falsche PIN');
+ const n=prompt('Neue PIN (mind. 4 Ziffern; leer lassen = PIN entfernen):');if(n===null)return;
+ if(!n){localStorage.removeItem('fh_pin');render();return}if(n.length<4)return alert('Zu kurz');localStorage.setItem('fh_pin',await hp(n));render();alert('PIN gesetzt')}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)lockNow()});lockNow();
+function dl(name,type,data){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove()}
+function backup(){dl('fallhilfe-sicherung-'+T+'.json','application/json',JSON.stringify(db,null,1))}
+function restore(f){if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.families)throw 0;if(confirm('Aktuelle Daten werden ersetzt. Fortfahren?')){db={families:d.families||[],tasks:d.tasks||[],reminders:d.reminders||[],appts:d.appts||[]};save();render()}}catch(e){alert('Ungültige Datei')}};r.readAsText(f)}
+function excel(){const S=(n,rows)=>`<Worksheet ss:Name="${n}"><Table>`+rows.map(r=>'<Row>'+r.map(c=>`<Cell><Data ss:Type="String">${esc(c)}</Data></Cell>`).join('')+'</Row>').join('')+'</Table></Worksheet>';
+ const x='<?xml version="1.0" encoding="UTF-8"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'+
+ S('Familien',[['Familienname','Ansprechpartner','Herkunftsland','Personen','Geburtsdaten','Telefon','E-Mail','Unterkunft','Einzug','Ampel'],...db.families.map(f=>[f.name,f.contact,f.country,f.persons,f.births,f.phone,f.email,f.address,fmt(f.moveIn),{g:'Grün',y:'Gelb',r:'Rot'}[famCls(f)]])])+
+ S('Dokumente',[['Familie',...DOCS.flatMap(d=>[d,d+' gültig bis'])],...db.families.map(f=>[f.name,...DOCS.flatMap((d,i)=>[f.docs?.[i]?.s||'',fmt(f.docs?.[i]?.e)])])])+
+ S('Aufgaben',[['Aufgabe','Familie','Fällig','Priorität','Status'],...db.tasks.map(t=>[t.title,fn(t.famId),fmt(t.due),t.prio,t.done?'erledigt':'offen'])])+
+ S('Wiedervorlagen',[['Stelle','Betreff','Familie','Datum','Status'],...db.reminders.map(t=>[t.type,t.title,fn(t.famId),fmt(t.due),t.done?'erledigt':'offen'])])+
+ S('Termine',[['Datum','Uhrzeit','Behörde','Ansprechpartner','Familie','Notizen'],...db.appts.map(t=>[fmt(t.date),t.time,t.agency,t.contact,fn(t.famId),t.notes])])+'</Workbook>';
+ dl('fallhilfe-'+T+'.xls','application/vnd.ms-excel',x)}
+function pdf(id){const f=fam(id);if(!f)return alert('Bitte zuerst eine Familie anlegen.');const r=(a,b)=>`<tr><th>${a}</th><td>${esc(b).replace(/\n/g,'<br>')}</td></tr>`;
+ const tb=(h,rows)=>`<table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(c=>`<tr>${c.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</table>`;
+ $('#print').innerHTML=`<h1>Fallakte ${esc(f.name)}</h1><p>Stand: ${fmt(T)}</p><table>${r('Ansprechpartner',f.contact)}${r('Herkunftsland',f.country)}${r('Personen',f.persons)}${r('Geburtsdaten',f.births)}${r('Telefon',f.phone)}${r('E-Mail',f.email)}${r('Unterkunft',f.address)}${r('Einzug',fmt(f.moveIn))}${r('Notizen',f.notes)}</table>
+ <h2>Dokumente</h2>${tb(['Dokument','Status','Gültig bis'],DOCS.map((d,i)=>[d,f.docs?.[i]?.s||'',fmt(f.docs?.[i]?.e)]))}
+ <h2>Aufgaben</h2>${tb(['Aufgabe','Fällig','Prio','Status'],db.tasks.filter(x=>x.famId==id).map(t=>[t.title,fmt(t.due),t.prio,t.done?'erledigt':'offen']))}
+ <h2>Wiedervorlagen</h2>${tb(['Stelle','Betreff','Datum','Status'],db.reminders.filter(x=>x.famId==id).map(t=>[t.type,t.title,fmt(t.due),t.done?'erledigt':'offen']))}
+ <h2>Termine</h2>${tb(['Datum','Zeit','Behörde','Ansprechpartner','Notizen'],db.appts.filter(x=>x.famId==id).map(t=>[fmt(t.date),t.time,t.agency,t.contact,t.notes]))}`;
+ setTimeout(()=>window.print(),100)}
+// PWA: Icon, Manifest, Service Worker
+try{const c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');x.fillStyle='#1f5f8b';x.fillRect(0,0,512,512);x.fillStyle='#fff';x.font='bold 300px sans-serif';x.textAlign='center';x.fillText('FH',256,340);
+ const ic=c.toDataURL('image/png'),http=/^https?:/.test(location.protocol);
+ const m={name:'Fallhilfe',short_name:'Fallhilfe',lang:'de',display:'standalone',background_color:'#1f5f8b',theme_color:'#1f5f8b',start_url:http?location.pathname:'.',icons:[{src:ic,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
+ const l=document.createElement('link');l.rel='manifest';l.href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/manifest+json'}));document.head.appendChild(l);
+ const a=document.createElement('link');a.rel='apple-touch-icon';a.href=ic;document.head.appendChild(a);
+ if(http&&'serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
+render();
+</script></body></html>
